@@ -1,0 +1,72 @@
+---
+title: "Exercise prediction"
+author: "VBolwerk"
+date: "10 juni 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise prediction
+
+The goal of this project is to predict the manner in which 6 participants did their exercises. This is the "classe" variable in the training set. We will use the other variables to predict with. In this report I will describe how I built my model, how I used cross validation, what I think the expected out of sample error is, and why I made the choices I did. I will also use the prediction model to predict 20 different test cases.
+
+We start by loading in the data.
+
+```{r}
+library(randomForest)
+library(caret)
+library(AppliedPredictiveModeling)
+train_df <-read.csv("~/../Desktop/pml-training.csv")
+train_df$classe = as.factor(train_df$classe)
+
+train_df <-train_df[, 7:160]
+```
+
+## Model selection and validation
+
+First we make a cross validation splot, using a 20% validation set.
+
+
+```{r}
+nearzero = nearZeroVar(train_df, saveMetrics = TRUE)
+cols_to_keep = row.names(nearzero[nearzero$nzv==FALSE,])
+train_df = train_df[, cols_to_keep]
+
+non_missing <- (colSums(is.na(train_df))==0)
+
+train_df = train_df[, non_missing]
+
+
+partition = createDataPartition(train_df$classe, p=0.8, list=FALSE)
+training = train_df[partition, ]
+validation = train_df[-partition, ]
+```
+
+Then we create a model, using random forest and 3 fold cross-validation. 
+
+```{r}
+model =train(classe ~ ., data=training, method="rf",trControl = trainControl(method = "cv", number=3))
+```
+
+We evaluate our model on the validation set below.
+
+```{r}
+validation_vars <- validation[, colnames(train_df)[1:53]]
+predictions <-predict(model, validation_vars)
+confusionMatrix(validation$classe, predictions)
+```
+
+We can see that our model works really well, so we are ready to go towards the test set. Out of sample accuracy was 99,9%, which means that the expected accuracy on our test set should also be high.
+
+```{r}
+test_df <-read.csv("~/../Desktop/pml-testing.csv")
+
+test_df <-test_df[, colnames(train_df)[1:53]]
+
+
+predictions <-predict(model, test_df)
+predictions
+```
